@@ -1,0 +1,592 @@
+package com.example
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
+import androidx.compose.animation.*
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.ui.theme.MyApplicationTheme
+
+class MainActivity : ComponentActivity() {
+    private val viewModel: CalculatorViewModel by viewModels()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            MyApplicationTheme {
+                CalculatorApp(viewModel)
+            }
+        }
+    }
+}
+
+@Composable
+fun CalculatorApp(viewModel: CalculatorViewModel) {
+    val expression by viewModel.expression.collectAsStateWithLifecycle()
+    val resultPreview by viewModel.resultPreview.collectAsStateWithLifecycle()
+    val history by viewModel.history.collectAsStateWithLifecycle()
+    val isHistoryVisible by viewModel.isHistoryVisible.collectAsStateWithLifecycle()
+
+    val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    
+    // Frosted Glass Theme (Universal Premium Dark Acrylic styling)
+    val appBackground = Color(0xFF0F1115) // Deep slate-dark background
+    val displayCardBackground = Color.White.copy(alpha = 0.04f)
+    val displayBorder = Color.White.copy(alpha = 0.08f)
+    
+    // Key categories colors from Design HTML
+    val numberBg = Color.White.copy(alpha = 0.05f) // bg-white/5
+    val numberText = Color(0xFFF1F5F9) // text-slate-100
+    
+    val commandBg = Color(0xFF1E293B).copy(alpha = 0.40f) // bg-slate-800/40
+    val commandText = Color(0xFFE2E2E6) // text-[#E2E2E6]
+    
+    val scientificBg = Color(0xFF1E293B).copy(alpha = 0.40f) // bg-slate-800/40
+    val scientificText = Color(0xFFE2E2E6) // text-[#E2E2E6]
+    
+    val operatorBg = Color(0xFF6366F1).copy(alpha = 0.20f) // bg-indigo-500/20
+    val operatorText = Color(0xFFA5B4FC) // text-indigo-300
+
+    val equalBg = Color(0xFF6366F1) // solid Indigo
+    val equalText = Color.White
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = appBackground
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            // Mesh Gradient Background Overlays
+            androidx.compose.foundation.Canvas(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // Main dark background color
+                drawRect(Color(0xFF0F1115))
+
+                // Glow 1: Indigo top left
+                drawCircle(
+                    brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                        colors = listOf(Color(0x3D4F46E5), Color.Transparent),
+                        center = androidx.compose.ui.geometry.Offset(-50.dp.toPx(), -50.dp.toPx()),
+                        radius = 350.dp.toPx()
+                    ),
+                    radius = 350.dp.toPx(),
+                    center = androidx.compose.ui.geometry.Offset(-50.dp.toPx(), -50.dp.toPx())
+                )
+
+                // Glow 2: Fuchsia middle-right
+                drawCircle(
+                    brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                        colors = listOf(Color(0x33D946EF), Color.Transparent),
+                        center = androidx.compose.ui.geometry.Offset(size.width + 80.dp.toPx(), size.height * 0.45f),
+                        radius = 420.dp.toPx()
+                    ),
+                    radius = 420.dp.toPx(),
+                    center = androidx.compose.ui.geometry.Offset(size.width + 80.dp.toPx(), size.height * 0.45f)
+                )
+
+                // Glow 3: Blue bottom-left / bottom-center
+                drawCircle(
+                    brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                        colors = listOf(Color(0x3B3B82F6), Color.Transparent),
+                        center = androidx.compose.ui.geometry.Offset(size.width * 0.2f, size.height + 100.dp.toPx()),
+                        radius = 320.dp.toPx()
+                    ),
+                    radius = 320.dp.toPx(),
+                    center = androidx.compose.ui.geometry.Offset(size.width * 0.2f, size.height + 100.dp.toPx())
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Top Action Header Row
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Calculator",
+                        style = TextStyle(
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White,
+                            fontFamily = FontFamily.SansSerif
+                        ),
+                        modifier = Modifier.testTag("app_title")
+                    )
+                    
+                    // History Icon
+                    Box(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.08f))
+                            .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape)
+                            .clickable(onClick = { viewModel.toggleHistory() })
+                            .padding(10.dp)
+                            .testTag("history_toggle_btn"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.List,
+                            contentDescription = "Show history logs",
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                // Display Monitor Area (Horizontal Overflow Scroll to match UX requirements)
+                val expressionScrollState = rememberScrollState()
+                LaunchedEffect(expression) {
+                    expressionScrollState.animateScrollTo(expressionScrollState.maxValue)
+                }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1.5f)
+                        .padding(vertical = 12.dp)
+                        .border(1.dp, displayBorder, RoundedCornerShape(26.dp))
+                        .testTag("display_card"),
+                    colors = CardDefaults.cardColors(containerColor = displayCardBackground),
+                    shape = RoundedCornerShape(26.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        // Expression display (scrollable horizontally if long)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(expressionScrollState),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            Text(
+                                text = expression.ifEmpty { "0" },
+                                style = TextStyle(
+                                    fontSize = if (expression.length > 12) 28.sp else 38.sp,
+                                    fontWeight = FontWeight.Light,
+                                    color = if (expression.isEmpty()) {
+                                        Color.White.copy(alpha = 0.35f)
+                                    } else {
+                                        Color.White.copy(alpha = 0.65f)
+                                    },
+                                    textAlign = TextAlign.End
+                                ),
+                                maxLines = 1,
+                                modifier = Modifier.testTag("expression_display")
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Dynamic Real-time Preview computation
+                        AnimatedVisibility(
+                            visible = resultPreview.isNotEmpty(),
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically()
+                        ) {
+                            Text(
+                                text = resultPreview,
+                                style = TextStyle(
+                                    fontSize = 52.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    color = Color.White,
+                                    textAlign = TextAlign.End,
+                                    letterSpacing = (-1).sp
+                                ),
+                                maxLines = 1,
+                                modifier = Modifier.testTag("result_preview")
+                            )
+                        }
+                    }
+                }
+
+                // Keypad Container Group (Frosted Surface layout matching design spec)
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(4.2f)
+                        .padding(top = 8.dp)
+                        .border(
+                            width = 1.dp,
+                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                colors = listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.02f))
+                            ),
+                            shape = RoundedCornerShape(topStart = 38.dp, topEnd = 38.dp)
+                        ),
+                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
+                    shape = RoundedCornerShape(topStart = 38.dp, topEnd = 38.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 12.dp, vertical = 14.dp)
+                            .testTag("keypad_grid"),
+                        verticalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        // Handled styling pill for MD3 tactile layout
+                        Box(
+                            modifier = Modifier
+                                .width(40.dp)
+                                .height(4.dp)
+                                .background(Color.White.copy(alpha = 0.20f), shape = CircleShape)
+                                .align(Alignment.CenterHorizontally)
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Row 1: C, (, ), ÷
+                        Row(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            CalcButton(text = "C", onClick = { viewModel.onClearClick() }, backgroundColor = commandBg, contentColor = commandText, testTag = "btn_clear")
+                            CalcButton(text = "(", onClick = { viewModel.onParenthesisClick("(") }, backgroundColor = commandBg, contentColor = commandText, testTag = "btn_lparen")
+                            CalcButton(text = ")", onClick = { viewModel.onParenthesisClick(")") }, backgroundColor = commandBg, contentColor = commandText, testTag = "btn_rparen")
+                            CalcButton(text = "÷", onClick = { viewModel.onOperatorClick("÷") }, backgroundColor = operatorBg, contentColor = operatorText, testTag = "btn_divide")
+                        }
+
+                        // Row 2: √, ^, %, ×
+                        Row(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            CalcButton(text = "√", onClick = { viewModel.onSqrtClick() }, backgroundColor = scientificBg, contentColor = scientificText, testTag = "btn_sqrt")
+                            CalcButton(text = "^", onClick = { viewModel.onOperatorClick("^") }, backgroundColor = scientificBg, contentColor = scientificText, testTag = "btn_power")
+                            CalcButton(text = "%", onClick = { viewModel.onPercentClick() }, backgroundColor = scientificBg, contentColor = scientificText, testTag = "btn_percent")
+                            CalcButton(text = "×", onClick = { viewModel.onOperatorClick("×") }, backgroundColor = operatorBg, contentColor = operatorText, testTag = "btn_multiply")
+                        }
+
+                        // Row 3: 7, 8, 9, -
+                        Row(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            CalcButton(text = "7", onClick = { viewModel.onDigitClick("7") }, backgroundColor = numberBg, contentColor = numberText, testTag = "btn_7")
+                            CalcButton(text = "8", onClick = { viewModel.onDigitClick("8") }, backgroundColor = numberBg, contentColor = numberText, testTag = "btn_8")
+                            CalcButton(text = "9", onClick = { viewModel.onDigitClick("9") }, backgroundColor = numberBg, contentColor = numberText, testTag = "btn_9")
+                            CalcButton(text = "-", onClick = { viewModel.onOperatorClick("-") }, backgroundColor = operatorBg, contentColor = operatorText, testTag = "btn_subtract")
+                        }
+
+                        // Row 4: 4, 5, 6, +
+                        Row(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            CalcButton(text = "4", onClick = { viewModel.onDigitClick("4") }, backgroundColor = numberBg, contentColor = numberText, testTag = "btn_4")
+                            CalcButton(text = "5", onClick = { viewModel.onDigitClick("5") }, backgroundColor = numberBg, contentColor = numberText, testTag = "btn_5")
+                            CalcButton(text = "6", onClick = { viewModel.onDigitClick("6") }, backgroundColor = numberBg, contentColor = numberText, testTag = "btn_6")
+                            CalcButton(text = "+", onClick = { viewModel.onOperatorClick("+") }, backgroundColor = operatorBg, contentColor = operatorText, testTag = "btn_add")
+                        }
+
+                        // Row 5: 1, 2, 3, ⌫
+                        Row(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            CalcButton(text = "1", onClick = { viewModel.onDigitClick("1") }, backgroundColor = numberBg, contentColor = numberText, testTag = "btn_1")
+                            CalcButton(text = "2", onClick = { viewModel.onDigitClick("2") }, backgroundColor = numberBg, contentColor = numberText, testTag = "btn_2")
+                            CalcButton(text = "3", onClick = { viewModel.onDigitClick("3") }, backgroundColor = numberBg, contentColor = numberText, testTag = "btn_3")
+                            CalcButton(text = "⌫", onClick = { viewModel.onDeleteClick() }, backgroundColor = commandBg, contentColor = commandText, testTag = "btn_delete")
+                        }
+
+                        // Row 6: 0, ., =
+                        Row(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            CalcButton(text = "0", onClick = { viewModel.onDigitClick("0") }, backgroundColor = numberBg, contentColor = numberText, weight = 2f, testTag = "btn_0")
+                            CalcButton(text = ".", onClick = { viewModel.onDecimalClick() }, backgroundColor = numberBg, contentColor = numberText, testTag = "btn_dot")
+                            CalcButton(text = "=", onClick = { viewModel.onEqualClick() }, backgroundColor = equalBg, contentColor = equalText, testTag = "btn_equal")
+                        }
+                    }
+                }
+            }
+
+            // In-Memory Slide-Up Session History Sheet
+            AnimatedVisibility(
+                visible = isHistoryVisible,
+                enter = slideInVertically(
+                    initialOffsetY = { height -> height },
+                    animationSpec = spring(stiffness = Spring.StiffnessMedium)
+                ) + fadeIn(),
+                exit = slideOutVertically(
+                    targetOffsetY = { height -> height },
+                    animationSpec = spring(stiffness = Spring.StiffnessMedium)
+                ) + fadeOut(),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = Color.Transparent
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        // Matching dynamic translucent backdrop for history window
+                        androidx.compose.foundation.Canvas(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            drawRect(Color(0xFF0F1115).copy(alpha = 0.95f))
+                            drawCircle(
+                                brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                                    colors = listOf(Color(0x354F46E5), Color.Transparent),
+                                    center = androidx.compose.ui.geometry.Offset(-50.dp.toPx(), -50.dp.toPx()),
+                                    radius = 280.dp.toPx()
+                                ),
+                                radius = 280.dp.toPx(),
+                                center = androidx.compose.ui.geometry.Offset(-50.dp.toPx(), -50.dp.toPx())
+                            )
+                            drawCircle(
+                                brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                                    colors = listOf(Color(0x2BD946EF), Color.Transparent),
+                                    center = androidx.compose.ui.geometry.Offset(size.width, size.height * 0.45f),
+                                    radius = 350.dp.toPx()
+                                ),
+                                radius = 350.dp.toPx(),
+                                center = androidx.compose.ui.geometry.Offset(size.width, size.height * 0.45f)
+                            )
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(24.dp)
+                        ) {
+                            // History Header Card
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Session History",
+                                    style = TextStyle(
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                )
+                                
+                                Row {
+                                    if (history.isNotEmpty()) {
+                                        TextButton(
+                                            onClick = { viewModel.clearHistory() },
+                                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFEF4444))
+                                        ) {
+                                            Text("Clear All")
+                                        }
+                                    }
+                                    TextButton(
+                                        onClick = { viewModel.toggleHistory() },
+                                        colors = ButtonDefaults.textButtonColors(
+                                            contentColor = Color(0xFFA5B4FC)
+                                        )
+                                    ) {
+                                        Text("Close")
+                                    }
+                                }
+                            }
+
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 12.dp),
+                                color = Color.White.copy(alpha = 0.1f)
+                            )
+
+                            if (history.isEmpty()) {
+                                // Beautiful Empty State UX Flow
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
+                                    verticalArrangement = Arrangement.Center,
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Empty",
+                                        tint = Color.White.copy(alpha = 0.2f),
+                                        modifier = Modifier.size(64.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text(
+                                        text = "No calculations, yet.",
+                                        style = TextStyle(
+                                            fontSize = 18.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = Color.White.copy(alpha = 0.4f)
+                                        )
+                                    )
+                                    Text(
+                                        text = "Your computation records will populate here.",
+                                        style = TextStyle(
+                                            fontSize = 14.sp,
+                                            color = Color.White.copy(alpha = 0.25f)
+                                        ),
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
+                            } else {
+                                // List of historic operations
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                                    contentPadding = PaddingValues(vertical = 8.dp)
+                                ) {
+                                    items(history, key = { it.id }) { item ->
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable { viewModel.selectHistoryItem(item) }
+                                                .border(
+                                                    width = 1.dp,
+                                                    color = Color.White.copy(alpha = 0.08f),
+                                                    shape = RoundedCornerShape(18.dp)
+                                                ),
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = Color.White.copy(alpha = 0.04f)
+                                            ),
+                                            shape = RoundedCornerShape(18.dp)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(16.dp),
+                                                horizontalAlignment = Alignment.End
+                                            ) {
+                                                Text(
+                                                    text = item.expression,
+                                                    style = TextStyle(
+                                                        fontSize = 18.sp,
+                                                        color = Color.White.copy(alpha = 0.5f)
+                                                    )
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = "= ${item.result}",
+                                                    style = TextStyle(
+                                                        fontSize = 22.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color.White
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Custom squircle key button component with spring-bouncy mechanical visual press transitions
+@Composable
+fun RowScope.CalcButton(
+    text: String,
+    onClick: () -> Unit,
+    backgroundColor: Color,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+    weight: Float = 1f,
+    testTag: String? = null
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.90f else 1.0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "btnScale"
+    )
+
+    val isEqualBtn = text == "="
+    Box(
+        modifier = modifier
+            .weight(weight)
+            .padding(5.dp)
+            .graphicsLayer(scaleX = scale, scaleY = scale)
+            .aspectRatio(if (weight > 1f) 2.1f else 1.0f) // Spans wider if double-weight 0
+            .clip(CircleShape)
+            .background(backgroundColor)
+            .then(
+                if (isEqualBtn) {
+                    Modifier.border(1.dp, Color(0xFF6366F1).copy(alpha = 0.5f), CircleShape)
+                } else {
+                    Modifier.border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
+                }
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = androidx.compose.foundation.LocalIndication.current,
+                onClick = onClick
+            )
+            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = TextStyle(
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = contentColor
+            )
+        )
+    }
+}
+
+
